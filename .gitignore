@@ -1,0 +1,7 @@
+*.ko
+*.o
+.depend
+.depend.*
+*.gz
+*.debug
+*.full

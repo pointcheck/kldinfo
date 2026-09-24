@@ -1,0 +1,108 @@
+.\"
+.\" SPDX-License-Identifier: BSD-2-Clause
+.\"
+.\" Copyright (c) 1997 Ruslan Zalata <rz@fabmicro.ru>
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.Dd September 25, 2026
+.Dt KLDINFO 8
+.Os
+.Sh NAME
+.Nm kldinfo
+.Nd display dependency and version information about kernel loadable objects
+held in KLD module (.ko) file
+.Sh SYNOPSIS
+.Nm
+.Op Fl rv
+.\".Ar
+file
+.Sh DESCRIPTION
+The
+.Nm
+utility parses ELF header of KLD
+.Ar file Ns Pa .ko ,
+then searches for available Kernel Loadable objects and shows their dependency
+and version information. If path to the file is given the utility tries to
+open it directly, it quits if open fails. Otherwise, it searches for
+.Va file.ko
+in directories set by
+.Va kern.module_path
+sysctl variable.
+The
+.Pa .ko
+extension name is not mandatory, it will be added while searching for the
+.Va file .
+It does not hurt to specify it though.
+.Pp
+The following options are available:
+.Bl -tag -width indent
+.It Fl r
+Extract version information of found objects. Otherwise print only dependencies.
+.It Fl v
+Be more verbose when parsing ELF.
+.El 
+.Sh NOTES
+The kernel file
+.Va /boot/kernel/kernel
+can also be used as parameter. In this case
+.Nm
+will show all modules builtin into the kernel along with their corresponding
+information. Note, the output can be very excessive.
+.El 
+.Sh FILES
+.Bl -tag -width /boot/kernel -compact
+.It Pa /boot/kernel
+default directory containing loadable modules.
+Modules must have an extension of
+.Pa .ko .
+.El
+.Sh EXIT STATUS
+.Ex -std
+.Sh EXAMPLES
+To show info about module by module name:
+.Bd -literal -offset indent
+\*[Gt] kldinfo foo
+.Ed
+.Pp
+To show info about module by file name within the module path:
+.Bd -literal -offset indent
+\*[Gt] kldinfo foo.ko
+.Ed
+.Pp
+To show info about module by relative path:
+.Bd -literal -offset indent
+\*[Gt] kldinfo ./foo.ko
+.Ed
+.Pp
+Or by full path:
+.Bd -literal -offset indent
+\*[Gt] kldinfo /boot/kernel/foo.ko
+.Ed
+.Pp
+.Sh SEE ALSO
+.Xr kldload 8 ,
+.Xr kldstat 8 ,
+.Xr sysctl 8
+.Sh AUTHORS
+.An Ruslan Zalata Aq Mt rz@fabmicro.ru

@@ -350,13 +350,15 @@ main(int argc, char *argv[])
 
 				char *subs;
 
+				if ((subs = strstr(sym_name, METADATA)) != NULL)
+					continue; /* hide medatata symbols */
+
 				if ((subs = strstr(sym_name, DEPEND_ON)) != NULL) {
 					fineprint_depend(sym_name, subs,
 						ver1, ver2, ver3);
 					deps_count++;
 				} else
-				if ((subs = strstr(sym_name, VERSION)) != NULL &&
-				            strstr(sym_name, METADATA) == NULL) {
+				if ((subs = strstr(sym_name, VERSION)) != NULL) {
 					if (print_ver)
 						fineprint_version(sym_name,
 							subs, ver1);
@@ -369,7 +371,7 @@ main(int argc, char *argv[])
 
 	if (verbose)
 		printf("\n");
-	
+
 	if (deps_count)
 		fprintf(stderr, "Found %u dependencies in file %s\n",
 			deps_count, filename);

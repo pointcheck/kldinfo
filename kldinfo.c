@@ -67,9 +67,11 @@ fineprint_depend(char *sym_name, char *subs,
 	int dep_name_len = strlen(sym_name - mod_name_len -
 		sizeof(DEPEND_ON));
 
-	printf("MODULE: %s\tDEPENDS: %s\tVERSION: %u %u %u\n",
-		mod_name, dep_name, ver1, ver2, ver3);
+	if (verbose)
+		printf("\n");
 
+	printf("MODULE: %-28s DEPENDS: %-28s VERSION: %7u %7u %7u\n",
+		mod_name, dep_name, ver1, ver2, ver3);
 }
 
 void
@@ -86,7 +88,7 @@ fineprint_version(char *sym_name, char *subs, uint32_t ver1)
 
 	strncat(obj_name, sym_name, obj_name_len);
 
-	printf("OBJECT: %s\tVERSION: %u\n", obj_name, ver1);
+	printf("OBJECT: %-28s VERSION: %-7u\n", obj_name, ver1);
 }
 
 char *
@@ -246,7 +248,7 @@ main(int argc, char *argv[])
 
 		while ((elf_data = elf_getdata(elf_scn, elf_data))) {
 			if (verbose)
-				printf("\tElf Data: off = 0x%lx, size = 0x%lu,"
+				printf("  Elf Data: off = 0x%lx, size = 0x%lu,"
 					" type = %u\n",
 					elf_data->d_off, elf_data->d_size,
 					elf_data->d_type);
@@ -270,7 +272,7 @@ main(int argc, char *argv[])
 					elf_strptr(elf, stab, sym.st_name);
 
 				if (verbose)
-					printf("\t\tSymbol = %s, info = 0x%02X,"
+					printf("  Symbol = %s, info = 0x%02X,"
 					  " sect = #%u, size = %lu,"
 					  " addr = 0x%lx\n",
 					  sym_name, sym.st_info, sym.st_shndx,
@@ -283,7 +285,7 @@ main(int argc, char *argv[])
 
 				if (scn == NULL) {
 					if (verbose)
-						printf("\t\t"
+						printf("    "
 						  "Cannot get section #%u\n",
 						  sym.st_shndx);
 					continue;
@@ -301,7 +303,7 @@ main(int argc, char *argv[])
 
 				if (data == NULL) {
 					if (verbose)
-						printf("\t\t"
+						printf("    "
 						  "Cannot get data for #%u\n",
 						  sym.st_shndx);
 					continue;
@@ -309,7 +311,7 @@ main(int argc, char *argv[])
 
 				if (data->d_buf == NULL) {
 					if (verbose)
-						printf("\t\t"
+						printf("    "
 						  "No data buf for sec #%u\n",
 						  sym.st_shndx);
 					continue;
@@ -328,7 +330,7 @@ main(int argc, char *argv[])
 					8 + sym.st_value - sh.sh_addr);
 
 				if (verbose)
-					printf("\t\t"
+					printf("    "
 					  "ver1 = 0x%0x (%u), "
 					  "ver2 = 0x%0x (%u), "
 					  "ver3 = 0x%0x (%u)\n",
@@ -338,7 +340,7 @@ main(int argc, char *argv[])
 					uint8_t *c = (uint8_t *)data->d_buf +
 						sym.st_value - sh.sh_addr;
 					if (verbose) {
-						printf("\t\tFirmware list: ");
+						printf("    Firmware list: ");
 						for (int i = 0;
 						    i < sym.st_size; i++)
 							printf("%02X ", c[i]);
@@ -365,6 +367,9 @@ main(int argc, char *argv[])
 
 	elf_end(elf);
 
+	if (verbose)
+		printf("\n");
+	
 	if (deps_count)
 		fprintf(stderr, "Found %u dependencies in file %s\n",
 			deps_count, filename);

@@ -43,18 +43,18 @@
 #define	METADATA	"_metadata"
 #define MODULE_PATH	"kern.module_path"
 
-int verbose = 0;
-const char *progname = NULL;
+static int verbose = 0;
+static const char *progname = NULL;
 static char mod_file[MAXPATHLEN] = {0};
 
-void
+static void
 usage(void)
 {
 	fprintf(stderr, "usage: %s: [-rv] file\n", progname);
 	exit(1);
 }
 
-void
+static void
 fineprint_depend(char *sym_name, char *subs,
 	uint32_t ver1, uint32_t ver2, uint32_t ver3)
 {
@@ -74,7 +74,7 @@ fineprint_depend(char *sym_name, char *subs,
 		mod_name, dep_name, ver1, ver2, ver3);
 }
 
-void
+static void
 fineprint_version(char *sym_name, char *subs, uint32_t ver1)
 {
 	int obj_name_len = subs - sym_name;
@@ -91,7 +91,7 @@ fineprint_version(char *sym_name, char *subs, uint32_t ver1)
 	printf("OBJECT: %-28s VERSION: %-7u\n", obj_name, ver1);
 }
 
-char *
+static char *
 find_module_file(char *name)
 {
 	if (index(name, '/') != NULL)

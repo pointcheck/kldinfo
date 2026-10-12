@@ -64,8 +64,6 @@ fineprint_depend(char *sym_name, char *subs,
 	strncat(mod_name, sym_name + 1, mod_name_len - 1);
 
 	char *dep_name = subs + sizeof(DEPEND_ON) - 1;
-	int dep_name_len = strlen(sym_name - mod_name_len -
-		sizeof(DEPEND_ON));
 
 	if (verbose)
 		printf("\n");

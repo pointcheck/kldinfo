@@ -317,17 +317,17 @@ main(int argc, char *argv[])
 					continue;
 				}
 
-				uint32_t ver1 =
-				  *(uint32_t *)((uint8_t *)data->d_buf +
-					0 + sym.st_value - sh.sh_addr);
+				uint32_t ver1;
+				memcpy(&ver1, ((uint8_t *)data->d_buf +
+					0 + sym.st_value - sh.sh_addr), sizeof(ver1));
 
-				uint32_t ver2 =
-				  *(uint32_t *)((uint8_t *)data->d_buf +
-					4 + sym.st_value - sh.sh_addr);
+				uint32_t ver2;
+				memcpy(&ver2, ((uint8_t *)data->d_buf +
+					4 + sym.st_value - sh.sh_addr), sizeof(ver2));
 
-				uint32_t ver3 =
-				  *(uint32_t *)((uint8_t *)data->d_buf +
-					8 + sym.st_value - sh.sh_addr);
+				uint32_t ver3;
+				memcpy(&ver3, ((uint8_t *)data->d_buf +
+					8 + sym.st_value - sh.sh_addr), sizeof(ver3));
 
 				if (verbose)
 					printf("    "

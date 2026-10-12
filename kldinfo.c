@@ -341,9 +341,9 @@ main(int argc, char *argv[])
 						sym.st_value - sh.sh_addr;
 					if (verbose) {
 						printf("    Firmware list: ");
-						for (int i = 0;
-						    i < sym.st_size; i++)
-							printf("%02X ", c[i]);
+						for (unsigned int j = 0;
+						    j < sym.st_size; j++)
+							printf("%02X ", c[j]);
 						printf("\n");
 					}
 				}

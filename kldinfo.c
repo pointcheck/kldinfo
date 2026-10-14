@@ -26,26 +26,29 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/param.h>
+#include <sys/sysctl.h>
+#include <sys/stat.h>
+
 #include <gelf.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <libelf.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/param.h>
-#include <sys/sysctl.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 #define	DEPEND_ON	"_depend_on_"
-#define	VERSION		"_version"
 #define	METADATA	"_metadata"
-#define MODULE_PATH	"kern.module_path"
+#define	MODULE_PATH	"kern.module_path"
+#define	SYSCTL		"sysctl__"
+#define	VERSION		"_version"
 
-static int verbose = 0;
-static const char *progname = NULL;
-static char mod_file[MAXPATHLEN] = {0};
+static bool		verbose = false;
+static char		mod_file[MAXPATHLEN] = {0};
+static const char 	*progname = NULL;
 
 static void
 usage(void)
@@ -54,51 +57,49 @@ usage(void)
 	exit(1);
 }
 
+/*
+ * Extract KObj name from sym_name, dependency from subs and fine-print them.
+ */
 static void
-fineprint_depend(char *sym_name, char *subs,
-	uint32_t ver1, uint32_t ver2, uint32_t ver3)
+fineprint_depend(char *sym_name, char *subs, uint32_t ver1, uint32_t ver2,
+    uint32_t ver3)
 {
-	int mod_name_len = subs - sym_name;
+	int mod_name_len = subs - sym_name - 1;
 	char mod_name[mod_name_len + 1];
-	mod_name[0] = '\000';
-	strncat(mod_name, sym_name + 1, mod_name_len - 1);
-
 	char *dep_name = subs + sizeof(DEPEND_ON) - 1;
 
-	if (verbose)
-		printf("\n");
-
+	mod_name[0] = 0;
+	strncat(mod_name, sym_name + 1, mod_name_len);
 	printf("MODULE: %-28s DEPENDS: %-28s VERSION: %7u %7u %7u\n",
 		mod_name, dep_name, ver1, ver2, ver3);
 }
 
+/*
+ * Extract KObj name from sym_name and fine-print its version number.
+ */
 static void
 fineprint_version(char *sym_name, char *subs, uint32_t ver1)
 {
-	int obj_name_len = subs - sym_name;
+	int obj_name_len = subs - sym_name - 1;
 	char obj_name[obj_name_len + 1];
-	obj_name[0] = '\000';
 
-	if (sym_name[0] == '_') {
-		sym_name++;
-		obj_name_len--;
-	}
-
-	strncat(obj_name, sym_name, obj_name_len);
-
+	obj_name[0] = 0;
+	strncat(obj_name, sym_name + 1, obj_name_len);
 	printf("OBJECT: %-28s VERSION: %-7u\n", obj_name, ver1);
 }
 
+/*
+ * Search for module file name in kern.module_path
+ */
 static char *
 find_module_file(char *name)
 {
-	if (index(name, '/') != NULL)
-		return (name); /* name is a file path name, use it! */
-
 	char *module_path;
 	size_t module_path_len = 0;
 
-	/* If getting module_path fails we quit returning NULL */
+	/* name is a file path name, use it! */
+	if (index(name, '/') != NULL)
+		return (name);
 
 	if (sysctlbyname(MODULE_PATH, NULL,
 			&module_path_len, NULL, 0) != 0) {
@@ -129,15 +130,12 @@ find_module_file(char *name)
 	struct stat sb;
 
 	while ((path = strsep(&module_path, ";")) != NULL) {
-
 		if (strstr(name, ".ko") == NULL)
 			snprintf(mod_file, MAXPATHLEN, "%s/%s.ko", path, name);
 		else
 			snprintf(mod_file, MAXPATHLEN, "%s/%s", path, name);
-
 		if (verbose)
 			printf("PATH: %s, mod_file: %s\n", path, mod_file);
-
 		if (stat(mod_file, &sb) == 0) {
 			found = 1;
 			break;
@@ -145,69 +143,69 @@ find_module_file(char *name)
 	}
 
 	free(module_path);
-
 	if (found) {
 		if (verbose)
 			printf("FOUND: %s\n", mod_file);
 		return (mod_file);
 	}
-
 	if (verbose)
 		printf("Module %s not found in module_path!\n", name);
 
 	return (NULL);
 }
 
+/*
+ * Parses ELF header of a given KLD module file, then searches for
+ * available Kernel Loadable objects and shows their dependency and
+ * version information. If path to file is given the utility tries
+ * to open it directly. It quits if open fails. Otherwise, it searches
+ * for .ko in directories set by kern.module_path sysctl variable.
+ * Can be used to show built-in modules in kernel file.
+ */
 int
 main(int argc, char *argv[])
 {
-	int fd;
 	int ch;
-	int print_ver = 0;
+	int fd;
 	int deps_count = 0;
+	bool print_ver = false;
 	char *filename = NULL;
 	Elf_Scn *elf_scn = NULL;
 	Elf *elf;
 
 	progname = getprogname();
-
 	while ((ch = getopt(argc, argv, "vr")) != -1) {
 		switch (ch) {
-		case 'v':
-			verbose = 1;
-			break;
 		case 'r':
-			print_ver = 1;
+			print_ver = true;
+			break;
+		case 'v':
+			verbose = true;
 			break;
 		case '?':
 		default:
 			usage();
 		}
 	}
-
 	argc -= optind;
 	argv += optind;
 
 	if (argc < 1)
 		usage();
-
 	if ((filename = find_module_file(argv[0])) == NULL) {
 		fprintf(stderr, "%s: can't find file for %s\n", progname,
 			argv[0]);
 		return (1);
 	}
-
 	if ((fd = open(filename, O_RDONLY)) < 0) {
 		fprintf(stderr, "%s: can't open ELF file %s: %s\n", progname,
 			filename, strerror(errno));
 		return (2);
 	}
-
 	if (elf_version(EV_CURRENT) == EV_NONE) {
 		fprintf(stderr, "%s: ELF library too old\n", progname);
 		return (3);
 	}
-
 	if ((elf = elf_begin(fd, ELF_C_READ, (Elf *) 0)) == 0) {
 		fprintf(stderr, "%s: ELF read error: %s\n", progname,
 			elf_errmsg(elf_errno()));
@@ -221,14 +219,12 @@ main(int argc, char *argv[])
 			elf_errmsg(elf_errno()));
 		return (5);
 	}
-
 	if (verbose)
 		printf("Section names are in section #%lu\n", scn_stab);
 
 	GElf_Shdr sh;
 
 	while ((elf_scn = elf_nextscn(elf, elf_scn))) {
-
 		if (gelf_getshdr(elf_scn, &sh) == NULL) {
 			fprintf(stderr, "%s: no section header for %p\n",
 				progname, elf_scn);
@@ -250,7 +246,6 @@ main(int argc, char *argv[])
 					" type = %u\n",
 					elf_data->d_off, elf_data->d_size,
 					elf_data->d_type);
-
 			if (strncmp(name, ".symtab", 7) != 0)
 				continue;
 
@@ -259,16 +254,13 @@ main(int argc, char *argv[])
 			int i = 0;
 			GElf_Sym sym;
 
-     			while (gelf_getsym(elf_data, i++, &sym) == &sym) {
+			while (gelf_getsym(elf_data, i++, &sym) == &sym) {
 
-				/* Symbol had been read */
-
+				/* Check is read symbol of a proper type */
 				if (GELF_ST_TYPE(sym.st_info) != STT_OBJECT)
-					continue; /* we look for data objects */
-
+					continue;
 				char *sym_name =
 					elf_strptr(elf, stab, sym.st_name);
-
 				if (verbose)
 					printf("  Symbol = %s, info = 0x%02X,"
 					  " sect = #%u, size = %lu,"
@@ -276,11 +268,8 @@ main(int argc, char *argv[])
 					  sym_name, sym.st_info, sym.st_shndx,
 					  sym.st_size, sym.st_value);
 
-
 				/* Access section of symbol data */
-
 				Elf_Scn *scn = elf_getscn(elf, sym.st_shndx);
-
 				if (scn == NULL) {
 					if (verbose)
 						printf("    "
@@ -288,7 +277,6 @@ main(int argc, char *argv[])
 						  sym.st_shndx);
 					continue;
 				}
-
 				if (gelf_getshdr(scn, &sh) == NULL) {
 					if (verbose)
 						printf("\t\t"
@@ -296,9 +284,7 @@ main(int argc, char *argv[])
 						  sym.st_shndx);
 					continue;
 				}
-
 				Elf_Data *data = elf_getdata(scn, NULL);
-
 				if (data == NULL) {
 					if (verbose)
 						printf("    "
@@ -306,7 +292,6 @@ main(int argc, char *argv[])
 						  sym.st_shndx);
 					continue;
 				}
-
 				if (data->d_buf == NULL) {
 					if (verbose)
 						printf("    "
@@ -315,18 +300,14 @@ main(int argc, char *argv[])
 					continue;
 				}
 
-				uint32_t ver1;
+				uint32_t ver1, ver2, ver3;
+
 				memcpy(&ver1, ((uint8_t *)data->d_buf +
 				  0 + sym.st_value - sh.sh_addr), sizeof(ver1));
-
-				uint32_t ver2;
 				memcpy(&ver2, ((uint8_t *)data->d_buf +
 				  4 + sym.st_value - sh.sh_addr), sizeof(ver2));
-
-				uint32_t ver3;
 				memcpy(&ver3, ((uint8_t *)data->d_buf +
 				  8 + sym.st_value - sh.sh_addr), sizeof(ver3));
-
 				if (verbose)
 					printf("    "
 					  "ver1 = 0x%0x (%u), "
@@ -348,9 +329,15 @@ main(int argc, char *argv[])
 
 				char *subs;
 
+				/* Kobj symbols begin with underscore */
+				if (sym_name[0] != '_')
+					continue;
+				/* Hide metadata symbols */
 				if ((subs = strstr(sym_name, METADATA)) != NULL)
-					continue; /* hide medatata symbols */
-
+					continue;
+				/* Hide sysctl objects */
+				if ((subs = strstr(sym_name, SYSCTL)) != NULL)
+					continue;
 				if ((subs = strstr(sym_name, DEPEND_ON)) != NULL) {
 					fineprint_depend(sym_name, subs,
 						ver1, ver2, ver3);
@@ -366,16 +353,11 @@ main(int argc, char *argv[])
 	}
 
 	elf_end(elf);
-
-	if (verbose)
-		printf("\n");
-
 	if (deps_count)
 		fprintf(stderr, "Found %u dependencies in file %s\n",
 			deps_count, filename);
 	else
 		fprintf(stderr, "ELF file %s is not a KLD object!\n",
 			filename);
-
 	return (0);
 }

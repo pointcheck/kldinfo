@@ -49,15 +49,14 @@
 #define	SYSCTL		"sysctl__"
 #define	VERSION		"_version"
 
-static char		mod_file[MAXPATHLEN] = {0};
-static const char 	*progname = NULL;
-static bool		print_ver = false;
-static bool		verbose = false;
+static char		mod_file[MAXPATHLEN];
+static bool		print_ver;
+static bool		verbose;
 
 static void
 usage(void)
 {
-	fprintf(stderr, "usage: %s: [-rv] file ...\n", progname);
+	fprintf(stderr, "usage: %s [-rv] file ...\n", getprogname());
 	exit(EX_USAGE);
 }
 
@@ -102,36 +101,29 @@ find_module_file(char *name)
 	/* name is a file pathnames, use it! */
 	if (index(name, '/') != NULL)
 		return (name);
-	if (sysctlbyname(MODULE_PATH, NULL,
-			&module_path_len, NULL, 0) != 0) {
-		fprintf(stderr, "%s: can't get sysctl %s size: %s\n", progname,
-			MODULE_PATH, strerror(errno));
-		return (NULL);
-	}
-	if ((module_path = (char *) malloc(module_path_len)) == NULL) {
-		fprintf(stderr, "%s: can't malloc %zu bytes: %s\n", progname,
-			module_path_len, strerror(errno));
-		return (NULL);
-	}
+	if (sysctlbyname(MODULE_PATH, NULL, &module_path_len, NULL, 0) != 0)
+		err(EX_OSFILE, "can't get sysctl %s size", MODULE_PATH);
+	if ((module_path = malloc(module_path_len)) == NULL)
+		err(EX_OSERR, "can't malloc %zu bytes", module_path_len);
 	if (sysctlbyname(MODULE_PATH, module_path,
-			&module_path_len, NULL, 0) != 0) {
-		fprintf(stderr, "%s: can't get sysctl %s value: %s\n", progname,
-			MODULE_PATH, strerror(errno));
-		return (NULL);
-	}
+			&module_path_len, NULL, 0) != 0)
+		err(EX_OSFILE, "can't get sysctl %s value", MODULE_PATH);
 	if (verbose)
 		printf("Searching module name %s in module_path: %s\n",
 			name, module_path);
 
-	size_t found = 0;
-	char *path;
 	struct stat sb;
+	char *path;
+	size_t found = 0;
+	bool add_ko = false;
+
+	if (strstr(name, ".ko") == NULL)
+		add_ko = true;
 
 	while ((path = strsep(&module_path, ";")) != NULL) {
-		if (strstr(name, ".ko") == NULL)
-			snprintf(mod_file, MAXPATHLEN, "%s/%s.ko", path, name);
-		else
-			snprintf(mod_file, MAXPATHLEN, "%s/%s", path, name);
+		if (snprintf(mod_file, MAXPATHLEN, "%s/%s%s", path, name,
+		    add_ko ? ".ko" : "") >= MAXPATHLEN)
+			continue;	/* coined file pathname is too long */
 		if (verbose)
 			printf("PATH: %s, mod_file: %s\n", path, mod_file);
 		if (stat(mod_file, &sb) == 0) {
@@ -159,9 +151,9 @@ find_module_file(char *name)
 static void
 process_module_file(char *filename)
 {
-	size_t deps_count = 0, scn_stab = 0;
 	Elf_Scn *elf_scn = NULL;
 	Elf *elf;
+	size_t deps_count = 0, scn_stab = 0;
 	int fd;
 
 	if ((fd = open(filename, O_RDONLY)) < 0)
@@ -317,13 +309,12 @@ process_module_file(char *filename)
 int
 main(int argc, char *argv[])
 {
-	char *filename = NULL;
+	char *filename;
 	int opt;
 
 	if (elf_version(EV_CURRENT) == EV_NONE)
 		errx(EX_SOFTWARE, "ELF library too old");
 
-	progname = getprogname();
 	while ((opt = getopt(argc, argv, "rv")) != -1) {
 		switch (opt) {
 		case 'r':
@@ -342,10 +333,10 @@ main(int argc, char *argv[])
 	if (argc == 0)
 		usage();
 	while (argc-- != 0) {
-		if ((filename = find_module_file(argv[0])) == NULL)
-			errx(EX_NOINPUT, "can't find file for %s", argv[0]);
+		if ((filename = find_module_file(*argv)) == NULL)
+			errx(EX_NOINPUT, "can't find file for %s", *argv);
 		process_module_file(filename);
 		argv++;
 	}
-	return (0);
+	exit(EX_OK);
 }

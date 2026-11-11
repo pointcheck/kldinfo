@@ -2,7 +2,6 @@
  * SPDX-License-Identifier: BSD-2-Clause
  *
  * Copyright (c) 2026 Ruslan Zalata <rz@fabmicro.ru>
- * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,7 +48,6 @@
 #define	SYSCTL		"sysctl__"
 #define	VERSION		"_version"
 
-static char		mod_file[MAXPATHLEN];
 static bool		print_ver;
 static bool		verbose;
 
@@ -95,6 +93,7 @@ fineprint_version(char *sym_name, char *subs, uint32_t ver1)
 static char *
 find_module_file(char *name)
 {
+	static char mod_file[MAXPATHLEN];
 	char *module_path;
 	size_t module_path_len = 0;
 
@@ -275,10 +274,10 @@ process_module_file(char *filename)
 				if (sym_name[0] != '_')
 					continue;
 				/* Hide metadata symbols */
-				if ((subs = strstr(sym_name, METADATA)) != NULL)
+				if (strstr(sym_name, METADATA) != NULL)
 					continue;
 				/* Hide sysctl objects */
-				if ((subs = strstr(sym_name, SYSCTL)) != NULL)
+				if (strstr(sym_name, SYSCTL) != NULL)
 					continue;
 				if ((subs = strstr(sym_name, DEPEND_ON)) != NULL) {
 					fineprint_depend(sym_name, subs, ver1,

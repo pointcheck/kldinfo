@@ -1,58 +1,39 @@
 .\"
-.\" SPDX-License-Identifier: BSD-2-Clause
-.\"
 .\" Copyright (c) 2026 Ruslan Zalata <rz@fabmicro.ru>
 .\"
-.\" Redistribution and use in source and binary forms, with or without
-.\" modification, are permitted provided that the following conditions
-.\" are met:
-.\" 1. Redistributions of source code must retain the above copyright
-.\"    notice, this list of conditions and the following disclaimer.
-.\" 2. Redistributions in binary form must reproduce the above copyright
-.\"    notice, this list of conditions and the following disclaimer in the
-.\"    documentation and/or other materials provided with the distribution.
-.\"
-.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
-.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
-.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-.\" SUCH DAMAGE.
+.\" SPDX-License-Identifier: BSD-2-Clause
 .\"
 .Dd October 16, 2026
 .Dt KLDINFO 8
 .Os
 .Sh NAME
 .Nm kldinfo
-.Nd display dependency and version information about kernel loadable objects
-held in KLD module (.ko) file
+.Nd show KLD module (.ko) file dependency and version information
 .Sh SYNOPSIS
 .Nm
 .Op Fl rv
-.Ar
+.Ar modname | Ar modpath | Ar kernel
+.Op ...
 .Sh DESCRIPTION
 The
 .Nm
 utility parses ELF header of KLD
-.Ar file Ns Pa .ko ,
+.Ar modname Ns Pa .ko ,
 then searches for available Kernel Loadable objects and shows their dependency
 and version information.
-If path to the file is given the utility tries to open it directly, it quits
-if open fails.
+If pathname
+.Ar modpath
+is given, the utility tries to open it directly, it quits if open fails.
 Otherwise, it searches for
-.Va file.ko
-in directories set by
+.Va modname
+in directories set by the
 .Va kern.module_path
 sysctl variable.
-The
-.Pa .ko
-extension name is not mandatory, it will be added while searching for the
-.Va file .
+Although modules must have an extension of
+.Pa .ko ,
+providing extension name is not mandatory, it will be added while searching
+for the
+.Va modname .
 It does not hurt to specify it though.
 .Pp
 The following options are available:
@@ -63,47 +44,48 @@ Otherwise print only dependencies.
 .It Fl v
 Be more verbose when parsing ELF.
 .El
-.Sh NOTES
+.Pp
 The kernel file
 .Va /boot/kernel/kernel
-can also be used as parameter.
+can also be used as parameter
+.Va kernel .
 In this case
 .Nm
 will show all modules builtin into the kernel along with their corresponding
 information.
 Note, the output can be very excessive.
 .Sh FILES
-.Bl -tag -width /boot/kernel -compact
-.It Pa /boot/kernel
-default directory containing loadable modules.
-Modules must have an extension of
-.Pa .ko .
-.El
+.Va /boot/modules
+and
+.Va /boot/kernel
+are directories containing loadable modules by default.
 .Sh EXIT STATUS
 .Ex -std
 .Sh EXAMPLES
-To show info about module by module name:
-.Bd -literal -offset indent
-\*[Gt] kldinfo foo
-.Ed
+Show info about module by module name, in this case
+.Ar iic :
 .Pp
-To show info about module by file name within the module path:
-.Bd -literal -offset indent
-\*[Gt] kldinfo foo.ko
-.Ed
+.Dl kldinfo iic
 .Pp
-To show info about module by relative path:
-.Bd -literal -offset indent
-\*[Gt] kldinfo ./foo.ko
-.Ed
+Show info about module by file name within the module path:
+.Pp
+.Dl kldinfo iic.ko
+.Pp
+Show info about module by relative path:
+.Pp
+.Dl kldinfo ../iic.ko
 .Pp
 Or by full path:
-.Bd -literal -offset indent
-\*[Gt] kldinfo /boot/kernel/foo.ko
-.Ed
+.Pp
+.Dl kldinfo /boot/kernel/iic.ko
 .Sh SEE ALSO
 .Xr kldload 8 ,
 .Xr kldstat 8 ,
 .Xr sysctl 8
+.Sh HISTORY
+The
+.Nm
+utility first appeared in
+.Fx 16.0 .
 .Sh AUTHORS
 .An Ruslan Zalata Aq Mt rz@fabmicro.ru

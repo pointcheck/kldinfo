@@ -2,6 +2,6 @@ PACKAGE=runtime
 PROG=	kldinfo
 MAN=	kldinfo.8
 
-LIBADD= elf
+LIBADD= elf xo
 
 .include <bsd.prog.mk>

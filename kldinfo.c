@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <libelf.h>
+#include <libxo/xo.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,7 +34,9 @@ static bool		verbose;
 static void
 usage(void)
 {
-	fprintf(stderr, "usage: %s [-rv] file ...\n", getprogname());
+	xo_error("usage: %s [-rv] file ...\n", getprogname());
+	xo_close_container("kldinfo");
+	xo_finish();
 	exit(EX_USAGE);
 }
 
@@ -48,8 +51,11 @@ fineprint_depend(char *sym_name, char *subs, uint32_t ver1, uint32_t ver2,
 	char *mod_name = sym_name + 1;
 	int mod_name_len = subs - sym_name - 1;
 
-	printf("MODULE: %-28.*s DEPENDS: %-28s VERSION: %7u %7u %7u\n",
+	xo_open_instance("dependency");
+	xo_emit("MODULE: {:module/%-28.*s/%.*s} DEPENDS: {:depends/%-28s/%s} "
+	        "VERSION: {:ver_pref/%7u} {:ver_min/%7u} {:ver_max/%7u}\n",
 		mod_name_len, mod_name, dep_name, ver1, ver2, ver3);
+	xo_close_instance("dependency");
 }
 
 /*
@@ -61,7 +67,10 @@ fineprint_version(char *sym_name, char *subs, uint32_t ver1)
 	char *obj_name = sym_name + 1;
 	int obj_name_len = subs - sym_name - 1;
 
-	printf("OBJECT: %-28.*s VERSION: %-7u\n", obj_name_len, obj_name, ver1);
+	xo_open_instance("object");
+	xo_emit("OBJECT: {:object/%-28.*s/%.*s} VERSION: {:version/%-7u/%u}\n",
+		obj_name_len, obj_name, ver1);
+	xo_close_instance("object");
 }
 
 /*
@@ -80,12 +89,12 @@ find_module_file(char *name)
 	if (index(name, '/') != NULL)
 		return (name);
 	if (sysctlbyname(MODULE_PATH, NULL, &module_path_len, NULL, 0) != 0)
-		err(EX_OSFILE, "can't get sysctl %s size", MODULE_PATH);
+		xo_err(EX_OSFILE, "can't get sysctl %s size", MODULE_PATH);
 	if ((module_path = malloc(module_path_len)) == NULL)
-		err(EX_OSERR, "can't malloc %zu bytes", module_path_len);
+		xo_err(EX_OSERR, "can't malloc %zu bytes", module_path_len);
 	if (sysctlbyname(MODULE_PATH, module_path,
 			&module_path_len, NULL, 0) != 0)
-		err(EX_OSFILE, "can't get sysctl %s value", MODULE_PATH);
+		xo_err(EX_OSFILE, "can't get sysctl %s value", MODULE_PATH);
 	if (verbose)
 		printf("Searching module name %s in module_path: %s\n",
 			name, module_path);
@@ -135,20 +144,24 @@ process_module_file(char *filename)
 	int fd;
 
 	if ((fd = open(filename, O_RDONLY)) < 0)
-		err(EX_NOINPUT, "can't open ELF file %s", filename);
+		xo_err(EX_NOINPUT, "can't open ELF file %s", filename);
 	if ((elf = elf_begin(fd, ELF_C_READ, (Elf *) 0)) == 0)
-		errx(EX_DATAERR, "ELF read error: %s", elf_errmsg(elf_errno()));
+		xo_errx(EX_DATAERR, "ELF read error: %s", elf_errmsg(elf_errno()));
 	if (elf_getshdrstrndx(elf, &scn_stab) < 0)
-		errx(EX_DATAERR, "ELF has no string table: %s",
+		xo_errx(EX_DATAERR, "ELF has no string table: %s",
 		    elf_errmsg(elf_errno()));
 	if (verbose)
 		printf("Section names are in section #%lu\n", scn_stab);
 
 	GElf_Shdr sh;
 
+	xo_open_instance("file");
+	xo_emit("FILE: {:filename/%s}\n", filename);
+	xo_open_list("items");
+
 	while ((elf_scn = elf_nextscn(elf, elf_scn))) {
 		if (gelf_getshdr(elf_scn, &sh) == NULL) {
-			warnx("no section header for %p", elf_scn);
+			xo_warnx("no section header for %p", elf_scn);
 			continue;
 		}
 
@@ -271,10 +284,9 @@ process_module_file(char *filename)
 		}
 	}
 	elf_end(elf);
-	if (deps_count)
-		warnx("found %zu dependencies in %s", deps_count, filename);
-	else
-		errx(EX_DATAERR, "ELF file %s is not a KLD module!", filename);
+	xo_close_list("items");
+	xo_emit("DEPS_COUNT: {:deps_count/%d}\n", deps_count);
+	xo_close_instance("file");
 }
 
 /*
@@ -290,8 +302,13 @@ main(int argc, char *argv[])
 	char *filename;
 	int opt;
 
+	argc = xo_parse_args(argc, argv);
+	if (argc < 0)
+		exit(EX_SOFTWARE);
+	xo_open_container("kldinfo");
+
 	if (elf_version(EV_CURRENT) == EV_NONE)
-		errx(EX_SOFTWARE, "ELF library too old");
+		xo_errx(EX_SOFTWARE, "ELF library too old");
 
 	while ((opt = getopt(argc, argv, "rv")) != -1) {
 		switch (opt) {
@@ -312,9 +329,11 @@ main(int argc, char *argv[])
 		usage();
 	while (argc-- != 0) {
 		if ((filename = find_module_file(*argv)) == NULL)
-			errx(EX_NOINPUT, "can't find file for %s", *argv);
+			xo_errx(EX_NOINPUT, "can't find file for %s", *argv);
 		process_module_file(filename);
 		argv++;
 	}
+	xo_close_container("kldinfo");
+	xo_finish();
 	exit(EX_OK);
 }
